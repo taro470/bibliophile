@@ -1,0 +1,125 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+}
+
+.required {
+  color: var(--color-error);
+  margin-left: var(--space-1);
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  transition: all var(--transition-fast);
+}
+
+.input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.input:hover {
+  border-color: var(--color-border-hover);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-muted);
+}
+
+.hasError .input,
+.input.hasError {
+  border-color: var(--color-error);
+}
+
+.input.hasError:focus {
+  box-shadow: 0 0 0 3px var(--color-error-bg);
+}
+
+/* With icons */
+.inputWrapper .input {
+  padding-left: calc(var(--space-4) + 24px);
+}
+
+.inputWrapper .input:has(+ .rightIcon) {
+  padding-right: calc(var(--space-4) + 24px);
+}
+
+.leftIcon {
+  position: absolute;
+  left: var(--space-3);
+  display: flex;
+  align-items: center;
+  color: var(--color-text-tertiary);
+  pointer-events: none;
+}
+
+.rightIcon {
+  position: absolute;
+  right: var(--space-3);
+  display: flex;
+  align-items: center;
+  color: var(--color-text-tertiary);
+}
+
+.clearButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--color-bg-tertiary);
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.clearButton:hover {
+  background: var(--color-border-hover);
+  color: var(--color-text-primary);
+}
+
+/* Textarea */
+.textarea {
+  min-height: 100px;
+  resize: none;
+  line-height: var(--leading-relaxed);
+}
+
+/* Error and hint */
+.error {
+  font-size: var(--text-sm);
+  color: var(--color-error);
+}
+
+.hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+}
+
+/* Search specific */
+.input[type="search"]::-webkit-search-cancel-button {
+  display: none;
+}

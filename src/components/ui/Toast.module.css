@@ -1,0 +1,134 @@
+.container {
+  position: fixed;
+  bottom: calc(var(--space-6) + var(--safe-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 90vw;
+  width: 400px;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  flex-shrink: 0;
+}
+
+.message {
+  flex: 1;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+
+.action {
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.action:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dismiss {
+  padding: var(--space-1);
+  background: transparent;
+  border: none;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.dismiss:hover {
+  color: var(--color-text-primary);
+}
+
+/* Type variants */
+.success {
+  border-color: var(--color-success);
+}
+
+.success .icon {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.success .action {
+  color: var(--color-success);
+}
+
+.error {
+  border-color: var(--color-error);
+}
+
+.error .icon {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.error .action {
+  color: var(--color-error);
+}
+
+.warning {
+  border-color: var(--color-warning);
+}
+
+.warning .icon {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.warning .action {
+  color: var(--color-warning);
+}
+
+.info {
+  border-color: var(--color-primary);
+}
+
+.info .icon {
+  background: var(--color-primary-muted);
+  color: var(--color-primary);
+}
+
+.info .action {
+  color: var(--color-primary);
+}
+
+@media (max-width: 640px) {
+  .container {
+    bottom: calc(var(--space-4) + var(--safe-bottom, 0px) + 70px);
+    width: calc(100% - var(--space-8));
+  }
+}
