@@ -93,7 +93,8 @@ function BookDetailContent({ bookId }: { bookId: string }) {
       const tagResults = await Promise.all(tagPromises);
       const fetchedTags = tagResults
         .map(r => r.data)
-        .filter((t): t is Tag => t !== null && t !== undefined);
+        .map(r => r.data)
+        .filter((t) => t !== null) as Tag[];
 
       setTags(fetchedTags);
     } catch (error) {
