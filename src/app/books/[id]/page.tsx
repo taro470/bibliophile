@@ -92,9 +92,8 @@ function BookDetailContent({ bookId }: { bookId: string }) {
       const tagPromises = bookTags.map(bt => client.models.Tag.get({ id: bt.tagId }));
       const tagResults = await Promise.all(tagPromises);
       const fetchedTags = tagResults
-        .map(r => r.data)
-        .map(r => r.data)
-        .filter((t) => t !== null) as Tag[];
+        .map(r => r?.data)
+        .filter((t) => t !== null && t !== undefined) as Tag[];
 
       setTags(fetchedTags);
     } catch (error) {
