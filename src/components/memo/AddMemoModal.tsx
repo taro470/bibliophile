@@ -34,6 +34,15 @@ export function AddMemoModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (isOpen) {
+      setType(initialData?.type || 'SUMMARY');
+      setContent(initialData?.content || '');
+      setSourcePage(initialData?.sourcePage || '');
+      setError(null);
+    }
+  }, [isOpen, initialData]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
