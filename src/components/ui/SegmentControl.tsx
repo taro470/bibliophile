@@ -42,6 +42,7 @@ export function SegmentControl<T extends string>({
 
       {segments.map((segment) => (
         <button
+          type="button"
           key={segment.value}
           role="tab"
           aria-selected={value === segment.value}
