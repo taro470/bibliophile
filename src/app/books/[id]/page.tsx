@@ -134,29 +134,51 @@ function BookDetailContent({ bookId }: { bookId: string }) {
   };
 
   // Add memo
-  const handleAddMemo = async (data: MemoFormData) => {
-    const { data: newMemo } = await client.models.InsightMemo.create({
-      bookId: data.bookId,
-      type: data.type,
-      content: data.content,
-      sourcePage: data.sourcePage,
-      pinned: false,
-    });
-
-    if (newMemo) {
-      setMemos(prev => [newMemo, ...prev]);
-
-      // Update memo count
-      if (book) {
-        await client.models.Book.update({
-          id: book.id,
-          memoCount: (book.memoCount || 0) + 1,
-          lastMemoAt: new Date().toISOString(),
+  // Add/Edit memo
+  const handleSaveMemo = async (data: MemoFormData) => {
+    if (editingMemo) {
+      // Update
+      try {
+        const { data: updatedMemo } = await client.models.InsightMemo.update({
+          id: editingMemo.id,
+          type: data.type,
+          content: data.content,
+          sourcePage: data.sourcePage,
         });
-        setBook({ ...book, memoCount: (book.memoCount || 0) + 1 });
-      }
 
-      showToast('メモを追加しました', 'success');
+        if (updatedMemo) {
+          setMemos(prev => prev.map(m => m.id === updatedMemo.id ? updatedMemo : m));
+          showToast('メモを更新しました', 'success');
+        }
+      } catch (error) {
+        console.error('Failed to update memo:', error);
+        showToast('メモの更新に失敗しました', 'error');
+      }
+    } else {
+      // Create
+      const { data: newMemo } = await client.models.InsightMemo.create({
+        bookId: data.bookId,
+        type: data.type,
+        content: data.content,
+        sourcePage: data.sourcePage,
+        pinned: false,
+      });
+
+      if (newMemo) {
+        setMemos(prev => [newMemo, ...prev]);
+
+        // Update memo count
+        if (book) {
+          await client.models.Book.update({
+            id: book.id,
+            memoCount: (book.memoCount || 0) + 1,
+            lastMemoAt: new Date().toISOString(),
+          });
+          setBook({ ...book, memoCount: (book.memoCount || 0) + 1 });
+        }
+
+        showToast('メモを追加しました', 'success');
+      }
     }
   };
 
@@ -399,7 +421,7 @@ function BookDetailContent({ bookId }: { bookId: string }) {
         }}
         bookId={bookId}
         bookTitle={book.title}
-        onSubmit={handleAddMemo}
+        onSubmit={handleSaveMemo}
         initialData={editingMemo ? {
           type: editingMemo.type as MemoType,
           content: editingMemo.content,

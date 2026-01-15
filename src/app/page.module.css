@@ -37,8 +37,9 @@
 }
 
 .logoText {
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: var(--font-bold);
+  letter-spacing: 0.05em;
   background: var(--gradient-primary);
   -webkit-background-clip: text;
   background-clip: text;
@@ -65,13 +66,7 @@
   border-color: var(--color-border-hover);
 }
 
-.searchWrapper {
-  /* Default styling */
-}
 
-.segmentWrapper {
-  /* Default styling */
-}
 
 .tagsWrapper {
   display: flex;

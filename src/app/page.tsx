@@ -158,8 +158,7 @@ function HomeContent() {
       <header className={styles.header}>
         <div className={styles.headerTop}>
           <div className={styles.logo}>
-            <span className={styles.logoIcon}>📚</span>
-            <h1 className={styles.logoText}>Bibliophile</h1>
+            <h1 className={styles.logoText}>蔵書・インサイトメモ管理</h1>
           </div>
           <button className={styles.userButton} onClick={signOut}>
             👤
