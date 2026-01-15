@@ -16,6 +16,18 @@ const schema = a.schema({
       // Relations
       memos: a.hasMany('InsightMemo', 'bookId'),
       bookTags: a.hasMany('BookTag', 'bookId'),
+      folderId: a.id(),
+      folder: a.belongsTo('Folder', 'folderId'),
+    })
+    .authorization((allow) => [allow.owner()]),
+
+  // Folder: 本をまとめるフォルダ
+  Folder: a
+    .model({
+      name: a.string().required(),
+      status: a.enum(BookStatus),
+      color: a.string(),
+      books: a.hasMany('Book', 'folderId'),
     })
     .authorization((allow) => [allow.owner()]),
 

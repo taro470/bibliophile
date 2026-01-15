@@ -7,20 +7,27 @@ import { Authenticator } from '@aws-amplify/ui-react';
 import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '@/amplify/data/resource';
 import styles from './page.module.css';
+import {
+  DndContext, DragEndEvent, closestCenter,
+  TouchSensor, MouseSensor, useSensor, useSensors
+} from '@dnd-kit/core';
+import { DraggableBookCard, DroppableFolderCard } from '@/components/dnd';
 
 // Components
 import {
-  Button, FAB, SearchInput, SegmentControl,
+  Button, SearchInput, SegmentControl,
   TagChip, EmptyBooks, EmptySearch, BookCardSkeleton,
-  useToast
+  useToast, SpeedDial
 } from '@/components/ui';
 import { BookCard, StatusBottomSheet } from '@/components/book';
+import { FolderCard, CreateFolderModal } from '@/components/folder';
 import { BookStatus, STATUS_LABELS } from '@/types';
 
 const client = generateClient<Schema>();
 
 type Book = Schema['Book']['type'];
 type Tag = Schema['Tag']['type'];
+type Folder = Schema['Folder']['type'];
 
 const statusSegments = [
   { value: 'TO_READ' as BookStatus, label: '読みたい', icon: '📚' },
@@ -33,8 +40,8 @@ function HomeContent() {
   const { showToast } = useToast();
 
   // State
-  // State
   const [books, setBooks] = useState<Book[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [bookTags, setBookTags] = useState<Schema['BookTag']['type'][]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,9 +49,28 @@ function HomeContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
 
-  // Status change sheet
+  // Folder Navigation State
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+
+  // Modals
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [folderModalOpen, setFolderModalOpen] = useState(false);
+
+  // D&D Sensors
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 10,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    })
+  );
 
   // Fetch books
   const fetchBooks = useCallback(async () => {
@@ -56,6 +82,16 @@ function HomeContent() {
       showToast('本の取得に失敗しました', 'error');
     }
   }, [showToast]);
+
+  // Fetch folders
+  const fetchFolders = useCallback(async () => {
+    try {
+      const { data } = await client.models.Folder.list({});
+      setFolders(data);
+    } catch (error) {
+      console.error('Failed to fetch folders:', error);
+    }
+  }, []);
 
   // Fetch tags and bookTags
   const fetchTags = useCallback(async () => {
@@ -75,15 +111,37 @@ function HomeContent() {
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
-      await Promise.all([fetchBooks(), fetchTags()]);
+      await Promise.all([fetchBooks(), fetchFolders(), fetchTags()]);
       setIsLoading(false);
     };
     init();
-  }, [fetchBooks, fetchTags]);
+  }, [fetchBooks, fetchFolders, fetchTags]);
+
+  // Derived State
+  const currentFolder = useMemo(() =>
+    folders.find(f => f.id === currentFolderId),
+    [folders, currentFolderId]
+  );
+
+  // Filter Folders
+  const filteredFolders = useMemo(() => {
+    // フォルダ内にはフォルダを表示しない（1階層のみの仕様）
+    if (currentFolderId) return [];
+
+    return folders.filter(f => f.status === activeStatus);
+  }, [folders, activeStatus, currentFolderId]);
 
   // Filter books
   const filteredBooks = useMemo(() => {
     let result = books.filter((book) => book.status === activeStatus);
+
+    // Folder Filter
+    if (currentFolderId) {
+      result = result.filter(b => b.folderId === currentFolderId);
+    } else {
+      // Root: show books without folder
+      result = result.filter(b => !b.folderId);
+    }
 
     // Search filter
     if (searchQuery) {
@@ -106,9 +164,9 @@ function HomeContent() {
     }
 
     return result;
-  }, [books, activeStatus, searchQuery, selectedTagId, bookTags]);
+  }, [books, activeStatus, searchQuery, selectedTagId, bookTags, currentFolderId]);
 
-  // Status counts
+  // Status counts (Global counts, roughly)
   const statusCounts = useMemo(() => {
     return {
       TO_READ: books.filter((b) => b.status === 'TO_READ').length,
@@ -117,7 +175,24 @@ function HomeContent() {
     };
   }, [books]);
 
-  // Handle status change
+  // Handlers
+  const handleCreateFolder = async (name: string, status: BookStatus, color: string) => {
+    try {
+      const { data: newFolder } = await client.models.Folder.create({
+        name,
+        status,
+        color,
+      });
+      if (newFolder) {
+        setFolders(prev => [...prev, newFolder]);
+        showToast('フォルダを作成しました', 'success');
+      }
+    } catch (error) {
+      console.error('Failed to create folder:', error);
+      throw error;
+    }
+  };
+
   const handleStatusChange = async (newStatus: BookStatus) => {
     if (!selectedBook) return;
 
@@ -147,10 +222,60 @@ function HomeContent() {
     setStatusSheetOpen(true);
   };
 
+  // Handle Drag End
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const bookId = active.id as string;
+    const folderId = over.id as string;
+
+    // Verify IDs (simple check)
+    const book = books.find(b => b.id === bookId);
+    if (!book || book.folderId === folderId) return;
+
+    // Optimistic Update
+    const originalFolderId = book.folderId;
+    setBooks(prev => prev.map(b =>
+      b.id === bookId ? { ...b, folderId: folderId } : b
+    ));
+    showToast('本を移動しました', 'success');
+
+    try {
+      await client.models.Book.update({
+        id: bookId,
+        folderId: folderId,
+      });
+      // Refresh counts if needed
+      fetchFolders();
+    } catch (error) {
+      console.error('Failed to move book:', error);
+      showToast('移動に失敗しました', 'error');
+      // Revert
+      setBooks(prev => prev.map(b =>
+        b.id === bookId ? { ...b, folderId: originalFolderId } : b
+      ));
+    }
+  };
+
   const segmentsWithCount = statusSegments.map((s) => ({
     ...s,
     count: statusCounts[s.value],
   }));
+
+  // Speed Dial Actions
+  const speedDialActions = [
+    {
+      label: '本を追加',
+      icon: <span style={{ fontSize: '20px' }}>📖</span>,
+      onClick: () => window.location.href = `/books/new${currentFolderId ? `?folderId=${currentFolderId}` : ''}`,
+    },
+    {
+      label: 'フォルダを作成',
+      icon: <span style={{ fontSize: '20px' }}>📁</span>,
+      onClick: () => setFolderModalOpen(true),
+    },
+  ];
 
   return (
     <div className={styles.container}>
@@ -180,7 +305,10 @@ function HomeContent() {
           <SegmentControl
             segments={segmentsWithCount}
             value={activeStatus}
-            onChange={setActiveStatus}
+            onChange={(status) => {
+              setActiveStatus(status);
+              setCurrentFolderId(null); // Reset folder nav on status change
+            }}
           />
         </div>
 
@@ -203,9 +331,21 @@ function HomeContent() {
             ))}
           </div>
         )}
+
+        {/* Breadcrumb Navigation */}
+        {currentFolderId && (
+          <div className={styles.breadcrumb}>
+            <button
+              className={styles.backButton}
+              onClick={() => setCurrentFolderId(null)}
+            >
+              ← 戻る｜{currentFolder?.name || 'フォルダ'}
+            </button>
+          </div>
+        )}
       </header>
 
-      {/* Book List */}
+      {/* Main Content */}
       <main className={styles.main}>
         {isLoading ? (
           <div className={styles.grid}>
@@ -213,18 +353,16 @@ function HomeContent() {
               <BookCardSkeleton key={i} />
             ))}
           </div>
-        ) : filteredBooks.length === 0 ? (
-          searchQuery ? (
-            <EmptySearch />
-          ) : (
-            <EmptyBooks onAddBook={() => window.location.href = '/books/new'} />
-          )
         ) : (
-          <motion.div className={styles.grid}>
-            <AnimatePresence mode="wait" initial={false}>
-              {filteredBooks.map((book) => (
-                <BookCard
-                  key={book.id}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <div className={styles.contentGrid}>
+              {/* Folders */}
+              {filteredFolders.length > 0 && (
+                <motion.div className={styles.grid}>
                   id={book.id}
                   title={book.title}
                   author={book.author}
@@ -232,29 +370,37 @@ function HomeContent() {
                   memoCount={book.memoCount || 0}
                   onStatusClick={(e) => openStatusSheet(book, e)}
                   updatedAt={book.updatedAt}
-                />
-              ))}
-            </AnimatePresence>
-          </motion.div>
+                      />
+                    ))}
+                </AnimatePresence>
+                </motion.div>
+          </>
         )}
-      </main>
-
-      {/* FAB */}
-      <FAB
-        icon="+"
-        onClick={() => window.location.href = '/books/new'}
-        aria-label="本を追加"
-      />
-
-      {/* Status Bottom Sheet */}
-      <StatusBottomSheet
-        isOpen={statusSheetOpen}
-        onClose={() => setStatusSheetOpen(false)}
-        currentStatus={(selectedBook?.status as BookStatus) || 'TO_READ'}
-        onStatusChange={handleStatusChange}
-        bookTitle={selectedBook?.title}
-      />
     </div>
+  )
+}
+      </main >
+
+  {/* Speed Dial FAB */ }
+  < SpeedDial actions = { speedDialActions } />
+
+    {/* Status Bottom Sheet */ }
+    < StatusBottomSheet
+isOpen = { statusSheetOpen }
+onClose = {() => setStatusSheetOpen(false)}
+currentStatus = {(selectedBook?.status as BookStatus) || 'TO_READ'}
+onStatusChange = { handleStatusChange }
+bookTitle = { selectedBook?.title }
+  />
+
+  {/* Create Folder Modal */ }
+  < CreateFolderModal
+isOpen = { folderModalOpen }
+onClose = {() => setFolderModalOpen(false)}
+onSubmit = { handleCreateFolder }
+initialStatus = { activeStatus }
+  />
+    </div >
   );
 }
 
