@@ -35,7 +35,6 @@ const statusSegments = [
   { value: 'READ' as BookStatus, label: '読んだ', icon: '✅' },
 ];
 
-// Droppable Back Button Area
 function DroppableBackArea({
   children,
   onClick
@@ -44,7 +43,7 @@ function DroppableBackArea({
   onClick: () => void
 }) {
   const { isOver, setNodeRef } = useDroppable({
-    id: 'ROOT', // ID for moving back to root/removing from folder
+    id: 'ROOT',
   });
 
   return (
@@ -52,15 +51,28 @@ function DroppableBackArea({
       ref={setNodeRef}
       onClick={onClick}
       style={{
-        display: 'inline-block',
-        padding: '4px 8px',
-        borderRadius: '4px',
-        backgroundColor: isOver ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
-        border: isOver ? '1px dashed var(--color-primary)' : '1px solid transparent',
+        display: 'flex',
+        alignItems: 'center',
+        padding: '12px 16px', // Much larger hit area
+        margin: '-8px -12px', // Negative margin to expand hit area without shifting layout too much
+        borderRadius: '8px',
+        backgroundColor: isOver ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+        border: isOver ? '2px dashed var(--color-primary)' : '2px solid transparent',
         transition: 'all 0.2s',
+        cursor: 'pointer',
       }}
     >
       {children}
+      {isOver && (
+        <span style={{
+          marginLeft: '12px',
+          color: 'var(--color-primary)',
+          fontWeight: 'bold',
+          pointerEvents: 'none'
+        }}>
+          ここにドロップしてフォルダから出す
+        </span>
+      )}
     </div>
   );
 }

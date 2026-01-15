@@ -33,12 +33,10 @@ export function FolderCard({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.2 }}
+      style={{ '--folder-color': color || '#7c3aed' } as React.CSSProperties}
     >
-      {/* Indicator dot instead of line */}
-      <div className={styles.indicator} style={{ backgroundColor: color }} />
-
       <div className={styles.header}>
-        <div className={styles.iconWrapper} style={{ color: color, backgroundColor: color ? `${color}15` : undefined }}>
+        <div className={styles.iconWrapper}>
           📁
         </div>
         <div className={styles.info}>
