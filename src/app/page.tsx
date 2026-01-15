@@ -8,8 +8,8 @@ import { generateClient } from 'aws-amplify/data';
 import type { Schema } from '@/amplify/data/resource';
 import styles from './page.module.css';
 import {
-  DndContext, DragEndEvent, closestCenter,
-  TouchSensor, MouseSensor, useSensor, useSensors
+  DndContext, DragEndEvent, pointerWithin,
+  TouchSensor, MouseSensor, useSensor, useSensors, useDroppable
 } from '@dnd-kit/core';
 import { DraggableBookCard, DroppableFolderCard } from '@/components/dnd';
 
@@ -34,6 +34,36 @@ const statusSegments = [
   { value: 'READING' as BookStatus, label: '読んでいる', icon: '📖' },
   { value: 'READ' as BookStatus, label: '読んだ', icon: '✅' },
 ];
+
+// Droppable Back Button Area
+function DroppableBackArea({
+  children,
+  onClick
+}: {
+  children: React.ReactNode,
+  onClick: () => void
+}) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: 'ROOT', // ID for moving back to root/removing from folder
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      onClick={onClick}
+      style={{
+        display: 'inline-block',
+        padding: '4px 8px',
+        borderRadius: '4px',
+        backgroundColor: isOver ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+        border: isOver ? '1px dashed var(--color-primary)' : '1px solid transparent',
+        transition: 'all 0.2s',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 function HomeContent() {
   const { user, signOut } = useAuthenticator();
@@ -228,25 +258,41 @@ function HomeContent() {
     if (!over) return;
 
     const bookId = active.id as string;
-    const folderId = over.id as string;
+    const targetId = over.id as string;
 
-    // Verify IDs (simple check)
     const book = books.find(b => b.id === bookId);
-    if (!book || book.folderId === folderId) return;
+    if (!book) return;
+
+    // Determine new Folder ID
+    let newFolderId: string | null = null;
+    if (targetId === 'ROOT') {
+      newFolderId = null;
+      if (!book.folderId) return; // Already in root
+    } else {
+      newFolderId = targetId;
+      if (book.folderId === newFolderId) return; // Same folder
+    }
+
+    // Check if target is actually a folder (or ROOT)
+    if (targetId !== 'ROOT' && !folders.find(f => f.id === targetId)) return;
 
     // Optimistic Update
     const originalFolderId = book.folderId;
     setBooks(prev => prev.map(b =>
-      b.id === bookId ? { ...b, folderId: folderId } : b
+      b.id === bookId ? { ...b, folderId: newFolderId } : b
     ));
-    showToast('本を移動しました', 'success');
+
+    const message = newFolderId
+      ? `「${book.title}」をフォルダに移動しました`
+      : `「${book.title}」をフォルダから出しました`;
+    showToast(message, 'success');
 
     try {
       await client.models.Book.update({
         id: bookId,
-        folderId: folderId,
+        folderId: newFolderId,
       });
-      // Refresh counts if needed
+      // Refresh
       fetchFolders();
     } catch (error) {
       console.error('Failed to move book:', error);
@@ -335,12 +381,11 @@ function HomeContent() {
         {/* Breadcrumb Navigation */}
         {currentFolderId && (
           <div className={styles.breadcrumb}>
-            <button
-              className={styles.backButton}
-              onClick={() => setCurrentFolderId(null)}
-            >
-              ← 戻る｜{currentFolder?.name || 'フォルダ'}
-            </button>
+            <DroppableBackArea onClick={() => setCurrentFolderId(null)}>
+              <button className={styles.backButton}>
+                ← 戻る｜{currentFolder?.name || 'フォルダ'}
+              </button>
+            </DroppableBackArea>
           </div>
         )}
       </header>
@@ -356,51 +401,87 @@ function HomeContent() {
         ) : (
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCenter}
+            collisionDetection={pointerWithin}
             onDragEnd={handleDragEnd}
           >
             <div className={styles.contentGrid}>
               {/* Folders */}
               {filteredFolders.length > 0 && (
                 <motion.div className={styles.grid}>
-                  id={book.id}
-                  title={book.title}
-                  author={book.author}
-                  status={book.status as BookStatus}
-                  memoCount={book.memoCount || 0}
-                  onStatusClick={(e) => openStatusSheet(book, e)}
-                  updatedAt={book.updatedAt}
+                  {filteredFolders.map((folder) => (
+                    <DroppableFolderCard
+                      key={folder.id}
+                      id={folder.id}
+                      disabled={!!currentFolderId}
+                    >
+                      <FolderCard
+                        id={folder.id}
+                        name={folder.name}
+                        color={folder.color || undefined}
+                        bookCount={folder.books?.length || 0}
+                        onClick={() => setCurrentFolderId(folder.id)}
                       />
-                    ))}
-                </AnimatePresence>
+                    </DroppableFolderCard>
+                  ))}
                 </motion.div>
-          </>
+              )}
+
+              {/* Books */}
+              {filteredBooks.length === 0 && filteredFolders.length === 0 ? (
+                searchQuery ? (
+                  <EmptySearch />
+                ) : (
+                  <EmptyBooks onAddBook={() => window.location.href = '/books/new'} />
+                )
+              ) : (
+                <>
+                  {filteredFolders.length > 0 && filteredBooks.length > 0 && (
+                    <h2 className={styles.sectionTitle}>本</h2>
+                  )}
+                  <motion.div className={styles.grid}>
+                    <AnimatePresence mode="wait" initial={false}>
+                      {filteredBooks.map((book) => (
+                        <DraggableBookCard key={book.id} id={book.id}>
+                          <BookCard
+                            id={book.id}
+                            title={book.title}
+                            author={book.author}
+                            status={book.status as BookStatus}
+                            memoCount={book.memoCount || 0}
+                            onStatusClick={(e) => openStatusSheet(book, e)}
+                            updatedAt={book.updatedAt}
+                          />
+                        </DraggableBookCard>
+                      ))}
+                    </AnimatePresence>
+                  </motion.div>
+                </>
+              )}
+            </div>
+          </DndContext>
         )}
+      </main>
+
+      {/* Speed Dial FAB */}
+      <SpeedDial actions={speedDialActions} />
+
+      {/* Status Bottom Sheet */}
+      <StatusBottomSheet
+        isOpen={statusSheetOpen}
+        onClose={() => setStatusSheetOpen(false)}
+        currentStatus={(selectedBook?.status as BookStatus) || 'TO_READ'}
+        onStatusChange={handleStatusChange}
+        bookTitle={selectedBook?.title}
+      />
+
+      {/* Create Folder Modal */}
+      <CreateFolderModal
+        isOpen={folderModalOpen}
+        onClose={() => setFolderModalOpen(false)}
+        onSubmit={handleCreateFolder}
+        initialStatus={activeStatus}
+      />
     </div>
-  )
-}
-      </main >
-
-  {/* Speed Dial FAB */ }
-  < SpeedDial actions = { speedDialActions } />
-
-    {/* Status Bottom Sheet */ }
-    < StatusBottomSheet
-isOpen = { statusSheetOpen }
-onClose = {() => setStatusSheetOpen(false)}
-currentStatus = {(selectedBook?.status as BookStatus) || 'TO_READ'}
-onStatusChange = { handleStatusChange }
-bookTitle = { selectedBook?.title }
-  />
-
-  {/* Create Folder Modal */ }
-  < CreateFolderModal
-isOpen = { folderModalOpen }
-onClose = {() => setFolderModalOpen(false)}
-onSubmit = { handleCreateFolder }
-initialStatus = { activeStatus }
-  />
-    </div >
   );
 }
 

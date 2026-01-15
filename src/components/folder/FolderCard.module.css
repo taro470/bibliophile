@@ -1,27 +1,65 @@
 .card {
   position: relative;
   background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: 0 var(--radius-lg) var(--radius-lg) var(--radius-lg);
   padding: var(--space-4);
   cursor: pointer;
   transition: all var(--transition-fast);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  overflow: hidden;
+  overflow: visible;
+  /* tab sticks out */
+  margin-top: 12px;
+  /* space for tab */
+  border: 1px solid var(--color-border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Folder Tab */
+.card::before {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: -1px;
+  width: 90px;
+  height: 14px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  z-index: 1;
+}
+
+/* Cover the border between tab and body */
+.card::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 88px;
+  /* Slightly smaller to fit inside borders */
+  height: 2px;
+  background: var(--color-bg-secondary);
+  z-index: 2;
 }
 
 .card:hover {
-  border-color: var(--color-primary);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: var(--color-primary);
+}
+
+.card:hover::before {
+  border-color: var(--color-primary);
 }
 
 .header {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  position: relative;
+  z-index: 3;
 }
 
 .iconWrapper {
@@ -31,8 +69,7 @@
   width: 40px;
   height: 40px;
   border-radius: var(--radius-md);
-  background: rgba(124, 58, 237, 0.15);
-  /* Purple tint */
+  /* background: rgba(124, 58, 237, 0.15); Removed default background to be set inline */
   color: var(--color-primary);
   font-size: 20px;
 }
@@ -59,12 +96,12 @@
 
 .indicator {
   position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 4px;
+  top: 12px;
+  right: 12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   background: var(--color-primary);
-  opacity: 0.8;
 }
 
 /* Menu Button */
@@ -81,6 +118,7 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   margin-left: auto;
+  z-index: 4;
 }
 
 .menuButton:hover {

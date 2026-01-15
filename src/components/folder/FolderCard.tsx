@@ -34,11 +34,11 @@ export function FolderCard({
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.2 }}
     >
-      {/* Decorative indicator line */}
+      {/* Indicator dot instead of line */}
       <div className={styles.indicator} style={{ backgroundColor: color }} />
 
       <div className={styles.header}>
-        <div className={styles.iconWrapper} style={{ color: color, backgroundColor: color ? `${color}20` : undefined }}>
+        <div className={styles.iconWrapper} style={{ color: color, backgroundColor: color ? `${color}15` : undefined }}>
           📁
         </div>
         <div className={styles.info}>
