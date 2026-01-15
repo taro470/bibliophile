@@ -16,7 +16,6 @@ interface BookCardProps {
   tags?: Array<{ id: string; name: string; color?: string | null }>;
   onStatusClick?: (e: React.MouseEvent) => void;
   updatedAt?: string;
-  layoutId?: string;
 }
 
 export function BookCard({
@@ -28,7 +27,6 @@ export function BookCard({
   tags = [],
   onStatusClick,
   updatedAt,
-  layoutId,
 }: BookCardProps) {
   const formattedDate = updatedAt
     ? new Date(updatedAt).toLocaleDateString('ja-JP', {
@@ -39,12 +37,10 @@ export function BookCard({
 
   return (
     <motion.div
-      layout
-      layoutId={layoutId}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.98 }}
+      transition={{ duration: 0.2 }}
       whileHover={{ y: -4 }}
       className={styles.card}
     >

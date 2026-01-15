@@ -221,8 +221,8 @@ function HomeContent() {
             <EmptyBooks onAddBook={() => window.location.href = '/books/new'} />
           )
         ) : (
-          <motion.div className={styles.grid} layout>
-            <AnimatePresence mode="popLayout" initial={false}>
+          <motion.div className={styles.grid}>
+            <AnimatePresence mode="wait" initial={false}>
               {filteredBooks.map((book) => (
                 <BookCard
                   key={book.id}
@@ -233,7 +233,6 @@ function HomeContent() {
                   memoCount={book.memoCount || 0}
                   onStatusClick={(e) => openStatusSheet(book, e)}
                   updatedAt={book.updatedAt}
-                  layoutId={book.id}
                 />
               ))}
             </AnimatePresence>
