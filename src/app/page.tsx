@@ -501,6 +501,27 @@ function HomeContent() {
           {/* Tags */}
           {tags.length > 0 && (
             <div className={styles.tagsWrapper}>
+              {/* Tag Settings Button */}
+              <button
+                onClick={() => setTagManagerOpen(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '16px',
+                  border: '1px solid var(--color-border)',
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text-secondary)',
+                  cursor: 'pointer',
+                  marginRight: '4px',
+                }}
+                aria-label="タグ管理"
+              >
+                <Settings size={16} />
+              </button>
+
               <TagChip
                 name="すべて"
                 isActive={!selectedTagId}
