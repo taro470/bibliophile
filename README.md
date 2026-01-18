@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bibliophile (蔵書・インサイトメモ管理)
 
-## Getting Started
+Bibliophileは、読書状況の管理、フォルダによる整理、そして読書から得たインサイト（メモ）を効率的に管理するためのWebアプリケーションです。
 
-First, run the development server:
+## 🚀 主な機能
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **読書ステータス管理**: 「読みたい」「読んでいる」「読んだ」の3つのステータスで本を管理。
+- **フォルダ機能**: ドラッグ＆ドロップで本をフォルダに整理。フォルダごとにカスタムカラーの設定が可能。
+- **タグシステム**: 本にタグを付けて自由にフィルタリング。
+- **インサイトメモ**: 読書中に得た気づきや引用をメモとして保存（今後のアップデートでさらに強化予定）。
+- **モバイルフレンドリー**: スマートフォンでも快適に操作できるレスポンシブデザインとボトムシートUI。
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🛠 技術スタック
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Frontend**: Next.js 14 (App Router), TypeScript
+- **Styling**: Vanilla CSS, Framer Motion (アニメーション)
+- **Backend/Database**: AWS Amplify Gen 2 (Data, Auth)
+- **Icons**: Lucide React
+- **Drag & Drop**: @dnd-kit
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📦 セットアップ
 
-## Learn More
+1. リポジトリをクローン:
+   ```bash
+   git clone https://github.com Taro470/bibliophile.git
+   cd bibliophile
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+2. 依存関係をインストール:
+   ```bash
+   npm install
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. Amplify Sandboxを起動 (バックエンドの開発環境):
+   ```bash
+   npx ampx sandbox
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+4. 開発サーバーを起動:
+   ```bash
+   npm run dev
+   ```
 
-## Deploy on Vercel
+## 🚀 デプロイ
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+このプロジェクトは AWS Amplify Hosting を使用してデプロイするように構成されています。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `main` ブランチへのマージが本番環境へのデプロイをトリガーします。
+- `develop` ブランチは開発環境の同期に使用されます。
+
+> [!IMPORTANT]
+> React 19 と一部のライブラリの互換性のため、ビルド時は `--legacy-peer-deps` フラグを使用してください。
+
+## 📄 ライセンス
+
+MIT
