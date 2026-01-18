@@ -12,6 +12,7 @@ import {
   TouchSensor, MouseSensor, useSensor, useSensors, useDroppable
 } from '@dnd-kit/core';
 import { DraggableBookCard, DroppableFolderCard } from '@/components/dnd';
+import { Book, BookOpen, CheckCircle, Folder, Trash2 } from 'lucide-react';
 
 // Components
 import {
@@ -25,14 +26,14 @@ import { BookStatus, STATUS_LABELS } from '@/types';
 
 const client = generateClient<Schema>();
 
-type Book = Schema['Book']['type'];
+type BookModel = Schema['Book']['type'];
 type Tag = Schema['Tag']['type'];
-type Folder = Schema['Folder']['type'];
+type FolderModel = Schema['Folder']['type'];
 
 const statusSegments = [
-  { value: 'TO_READ' as BookStatus, label: '読みたい', icon: '📚' },
-  { value: 'READING' as BookStatus, label: '読んでいる', icon: '📖' },
-  { value: 'READ' as BookStatus, label: '読んだ', icon: '✅' },
+  { value: 'TO_READ' as BookStatus, label: '読みたい', icon: <Book size={18} color="#8b5cf6" /> },
+  { value: 'READING' as BookStatus, label: '読んでいる', icon: <BookOpen size={18} color="#8b5cf6" /> },
+  { value: 'READ' as BookStatus, label: '読んだ', icon: <CheckCircle size={18} color="#8b5cf6" /> },
 ];
 
 function DroppableBackArea({
@@ -53,11 +54,11 @@ function DroppableBackArea({
       style={{
         display: 'flex',
         alignItems: 'center',
-        padding: '12px 16px', // Much larger hit area
-        margin: '-8px -12px', // Negative margin to expand hit area without shifting layout too much
+        padding: '12px 16px',
+        margin: '-8px -12px',
         borderRadius: '8px',
-        backgroundColor: isOver ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
-        border: isOver ? '2px dashed var(--color-primary)' : '2px solid transparent',
+        backgroundColor: isOver ? 'rgba(139, 92, 246, 0.2)' : 'transparent', // Purple tint
+        border: isOver ? '2px dashed #8b5cf6' : '2px solid transparent',
         transition: 'all 0.2s',
         cursor: 'pointer',
       }}
@@ -66,11 +67,11 @@ function DroppableBackArea({
       {isOver && (
         <span style={{
           marginLeft: '12px',
-          color: 'var(--color-primary)',
+          color: '#8b5cf6',
           fontWeight: 'bold',
           pointerEvents: 'none'
         }}>
-          ここにドロップしてフォルダから出す
+          ドロップしてフォルダから出す
         </span>
       )}
     </div>
@@ -82,8 +83,8 @@ function HomeContent() {
   const { showToast } = useToast();
 
   // State
-  const [books, setBooks] = useState<Book[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const [books, setBooks] = useState<BookModel[]>([]);
+  const [folders, setFolders] = useState<FolderModel[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [bookTags, setBookTags] = useState<Schema['BookTag']['type'][]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -96,7 +97,7 @@ function HomeContent() {
 
   // Modals
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
-  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [selectedBook, setSelectedBook] = useState<BookModel | null>(null);
   const [folderModalOpen, setFolderModalOpen] = useState(false);
 
   // D&D Sensors
@@ -167,9 +168,7 @@ function HomeContent() {
 
   // Filter Folders
   const filteredFolders = useMemo(() => {
-    // フォルダ内にはフォルダを表示しない（1階層のみの仕様）
     if (currentFolderId) return [];
-
     return folders.filter(f => f.status === activeStatus);
   }, [folders, activeStatus, currentFolderId]);
 
@@ -208,7 +207,7 @@ function HomeContent() {
     return result;
   }, [books, activeStatus, searchQuery, selectedTagId, bookTags, currentFolderId]);
 
-  // Status counts (Global counts, roughly)
+  // Status counts
   const statusCounts = useMemo(() => {
     return {
       TO_READ: books.filter((b) => b.status === 'TO_READ').length,
@@ -239,25 +238,67 @@ function HomeContent() {
     if (!selectedBook) return;
 
     try {
+      // If book is in a folder via currentFolderId, check if folder status matches newStatus
+      let newFolderId = selectedBook.folderId;
+
+      // If the book moves to a different status, and current folder belongs to old status,
+      // the book should NOT stay in that folder (as folders are status-specific).
+      // We essentially kick it out to Root of the new status.
+      if (newStatus !== activeStatus && selectedBook.folderId) {
+        // If folder status is tied to activeStatus (which it is visually),
+        // then moving status implies moving out of this folder.
+        // Note: Ideally check folder.status explicitly, but UI enforces folders are strict.
+        newFolderId = null;
+      }
+
       await client.models.Book.update({
         id: selectedBook.id,
         status: newStatus,
+        folderId: newFolderId
       });
 
       setBooks((prev) =>
         prev.map((b) =>
-          b.id === selectedBook.id ? { ...b, status: newStatus } : b
+          b.id === selectedBook.id ? { ...b, status: newStatus, folderId: newFolderId } : b
         )
       );
 
-      showToast(`「${selectedBook.title}」を${STATUS_LABELS[newStatus]}に変更しました`, 'success');
+      const statusLabel = STATUS_LABELS[newStatus];
+      showToast(`「${selectedBook.title}」を${statusLabel}に変更しました`, 'success');
     } catch (error) {
       console.error('Failed to update status:', error);
       showToast('ステータスの変更に失敗しました', 'error');
     }
   };
 
-  const openStatusSheet = (book: Book, e: React.MouseEvent) => {
+  const handleDeleteTag = async (tagId: string, tagName: string) => {
+    if (!confirm(`タグ「${tagName}」を削除してもよろしいですか？`)) return;
+
+    try {
+      // 1. Delete relations locally first for UI responsiveness
+      setBookTags(prev => prev.filter(bt => bt.tagId !== tagId));
+      setTags(prev => prev.filter(t => t.id !== tagId));
+      if (selectedTagId === tagId) setSelectedTagId(null);
+
+      // 2. Delete from backend
+      // First delete all BookTag relations (Amplify/DynamoDB doesn't always cascade)
+      // Actually strictly speaking we should query them.
+      // But assuming cascade or manual cleanup. Let's just delete the tag.
+      // Ideally delete BookTags first.
+      const bookTagsToDelete = bookTags.filter(bt => bt.tagId === tagId);
+      await Promise.all(bookTagsToDelete.map(bt => client.models.BookTag.delete({ id: bt.id })));
+      await client.models.Tag.delete({ id: tagId });
+
+      showToast('タグを削除しました', 'success');
+    } catch (error) {
+      console.error('Failed to delete tag:', error);
+      showToast('タグの削除に失敗しました', 'error');
+      // Ideally revert state here, but skipping for brevity
+      fetchTags(); // Refetch to be safe
+    }
+  };
+
+  const openStatusSheet = (book: BookModel, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setSelectedBook(book);
@@ -304,12 +345,10 @@ function HomeContent() {
         id: bookId,
         folderId: newFolderId,
       });
-      // Refresh
       fetchFolders();
     } catch (error) {
       console.error('Failed to move book:', error);
       showToast('移動に失敗しました', 'error');
-      // Revert
       setBooks(prev => prev.map(b =>
         b.id === bookId ? { ...b, folderId: originalFolderId } : b
       ));
@@ -336,105 +375,121 @@ function HomeContent() {
   ];
 
   return (
-    <div className={styles.container}>
-      {/* Header */}
-      <header className={styles.header}>
-        <div className={styles.headerTop}>
-          <div className={styles.logo}>
-            <h1 className={styles.logoText}>蔵書・インサイトメモ管理</h1>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={pointerWithin}
+      onDragEnd={handleDragEnd}
+    >
+      <div className={styles.container}>
+        {/* Header */}
+        <header className={styles.header}>
+          <div className={styles.headerTop}>
+            <div className={styles.logo}>
+              <h1 className={styles.logoText}>蔵書・インサイトメモ管理</h1>
+            </div>
+            <button className={styles.userButton} onClick={signOut}>
+              👤
+            </button>
           </div>
-          <button className={styles.userButton} onClick={signOut}>
-            👤
-          </button>
-        </div>
 
-        {/* Search */}
-        <div className={styles.searchWrapper}>
-          <SearchInput
-            placeholder="タイトル・著者で検索..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onClear={() => setSearchQuery('')}
-          />
-        </div>
-
-        {/* Status Toggle */}
-        <div className={styles.segmentWrapper}>
-          <SegmentControl
-            segments={segmentsWithCount}
-            value={activeStatus}
-            onChange={(status) => {
-              setActiveStatus(status);
-              setCurrentFolderId(null); // Reset folder nav on status change
-            }}
-          />
-        </div>
-
-        {/* Tags */}
-        {tags.length > 0 && (
-          <div className={styles.tagsWrapper}>
-            <TagChip
-              name="すべて"
-              isActive={!selectedTagId}
-              onClick={() => setSelectedTagId(null)}
+          {/* Search */}
+          <div className={styles.searchWrapper}>
+            <SearchInput
+              placeholder="タイトル・著者で検索..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onClear={() => setSearchQuery('')}
             />
-            {tags.map((tag) => (
+          </div>
+
+          {/* Status Toggle */}
+          <div className={styles.segmentWrapper}>
+            <SegmentControl
+              segments={segmentsWithCount}
+              value={activeStatus}
+              onChange={(status) => {
+                setActiveStatus(status);
+                setCurrentFolderId(null); // Reset folder nav on status change
+              }}
+            />
+          </div>
+
+          {/* Tags */}
+          {tags.length > 0 && (
+            <div className={styles.tagsWrapper}>
               <TagChip
-                key={tag.id}
-                name={tag.name}
-                color={tag.color || undefined}
-                isActive={selectedTagId === tag.id}
-                onClick={() => setSelectedTagId(selectedTagId === tag.id ? null : tag.id)}
+                name="すべて"
+                isActive={!selectedTagId}
+                onClick={() => setSelectedTagId(null)}
               />
-            ))}
-          </div>
-        )}
+              {tags.map((tag) => (
+                <div key={tag.id} className="relative group">
+                  <TagChip
+                    name={tag.name}
+                    color={tag.color || undefined}
+                    isActive={selectedTagId === tag.id}
+                    onClick={() => setSelectedTagId(selectedTagId === tag.id ? null : tag.id)}
+                  />
+                  {/* Delete Tag Button (Long press or small X would be better for mobile, but here using a small overlay) */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteTag(tag.id, tag.name);
+                    }}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ width: '18px', height: '18px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
-        {/* Breadcrumb Navigation */}
-        {currentFolderId && (
-          <div className={styles.breadcrumb}>
-            <DroppableBackArea onClick={() => setCurrentFolderId(null)}>
-              <button className={styles.backButton}>
-                ← 戻る｜{currentFolder?.name || 'フォルダ'}
-              </button>
-            </DroppableBackArea>
-          </div>
-        )}
-      </header>
+          {/* Breadcrumb Navigation */}
+          {currentFolderId && (
+            <div className={styles.breadcrumb}>
+              <DroppableBackArea onClick={() => setCurrentFolderId(null)}>
+                <button className={styles.backButton}>
+                  ← 戻る｜{currentFolder?.name || 'フォルダ'}
+                </button>
+              </DroppableBackArea>
+            </div>
+          )}
+        </header>
 
-      {/* Main Content */}
-      <main className={styles.main}>
-        {isLoading ? (
-          <div className={styles.grid}>
-            {[...Array(6)].map((_, i) => (
-              <BookCardSkeleton key={i} />
-            ))}
-          </div>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={pointerWithin}
-            onDragEnd={handleDragEnd}
-          >
+        {/* Main Content */}
+        <main className={styles.main}>
+          {isLoading ? (
+            <div className={styles.grid}>
+              {[...Array(6)].map((_, i) => (
+                <BookCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : (
             <div className={styles.contentGrid}>
               {/* Folders */}
               {filteredFolders.length > 0 && (
                 <motion.div className={styles.grid}>
-                  {filteredFolders.map((folder) => (
-                    <DroppableFolderCard
-                      key={folder.id}
-                      id={folder.id}
-                      disabled={!!currentFolderId}
-                    >
-                      <FolderCard
+                  {filteredFolders.map((folder) => {
+                    // Live Count Calculation
+                    const count = books.filter(b => b.folderId === folder.id).length;
+                    return (
+                      <DroppableFolderCard
+                        key={folder.id}
                         id={folder.id}
-                        name={folder.name}
-                        color={folder.color || undefined}
-                        bookCount={folder.books?.length || 0}
-                        onClick={() => setCurrentFolderId(folder.id)}
-                      />
-                    </DroppableFolderCard>
-                  ))}
+                        disabled={!!currentFolderId}
+                      >
+                        <FolderCard
+                          id={folder.id}
+                          name={folder.name}
+                          color={folder.color || undefined}
+                          bookCount={count}
+                          onClick={() => setCurrentFolderId(folder.id)}
+                        />
+                      </DroppableFolderCard>
+                    );
+                  })}
                 </motion.div>
               )}
 
@@ -470,30 +525,30 @@ function HomeContent() {
                 </>
               )}
             </div>
-          </DndContext>
-        )}
-      </main>
+          )}
+        </main>
 
-      {/* Speed Dial FAB */}
-      <SpeedDial actions={speedDialActions} />
+        {/* Speed Dial FAB */}
+        <SpeedDial actions={speedDialActions} />
 
-      {/* Status Bottom Sheet */}
-      <StatusBottomSheet
-        isOpen={statusSheetOpen}
-        onClose={() => setStatusSheetOpen(false)}
-        currentStatus={(selectedBook?.status as BookStatus) || 'TO_READ'}
-        onStatusChange={handleStatusChange}
-        bookTitle={selectedBook?.title}
-      />
+        {/* Status Bottom Sheet */}
+        <StatusBottomSheet
+          isOpen={statusSheetOpen}
+          onClose={() => setStatusSheetOpen(false)}
+          currentStatus={(selectedBook?.status as BookStatus) || 'TO_READ'}
+          onStatusChange={handleStatusChange}
+          bookTitle={selectedBook?.title}
+        />
 
-      {/* Create Folder Modal */}
-      <CreateFolderModal
-        isOpen={folderModalOpen}
-        onClose={() => setFolderModalOpen(false)}
-        onSubmit={handleCreateFolder}
-        initialStatus={activeStatus}
-      />
-    </div>
+        {/* Create Folder Modal */}
+        <CreateFolderModal
+          isOpen={folderModalOpen}
+          onClose={() => setFolderModalOpen(false)}
+          onSubmit={handleCreateFolder}
+          initialStatus={activeStatus}
+        />
+      </div>
+    </DndContext>
   );
 }
 
