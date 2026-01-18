@@ -10,8 +10,7 @@ interface FolderCardProps {
   bookCount?: number;
   color?: string;
   onClick: () => void;
-  onEdit?: (e: React.MouseEvent) => void;
-  onDelete?: (e: React.MouseEvent) => void;
+  onMenuOpen?: (e: React.MouseEvent) => void;
 }
 
 export function FolderCard({
@@ -20,8 +19,7 @@ export function FolderCard({
   bookCount = 0,
   color,
   onClick,
-  onEdit,
-  onDelete,
+  onMenuOpen,
 }: FolderCardProps) {
   return (
     <motion.div
@@ -44,14 +42,14 @@ export function FolderCard({
           <span className={styles.count}>{bookCount} 冊</span>
         </div>
 
-        {onEdit && (
+        {onMenuOpen && (
           <button
             className={styles.menuButton}
             onClick={(e) => {
               e.stopPropagation();
-              onEdit(e);
+              onMenuOpen(e);
             }}
-            aria-label="フォルダを編集"
+            aria-label="フォルダメニュー"
           >
             ⋮
           </button>

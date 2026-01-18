@@ -12,7 +12,7 @@ import {
   TouchSensor, MouseSensor, useSensor, useSensors, useDroppable
 } from '@dnd-kit/core';
 import { DraggableBookCard, DroppableFolderCard } from '@/components/dnd';
-import { Book, BookOpen, CheckCircle, Folder, Trash2 } from 'lucide-react';
+import { Book, BookOpen, CheckCircle, Folder, Settings } from 'lucide-react';
 
 // Components
 import {
@@ -21,7 +21,9 @@ import {
   useToast, SpeedDial
 } from '@/components/ui';
 import { BookCard, StatusBottomSheet } from '@/components/book';
-import { FolderCard, CreateFolderModal } from '@/components/folder';
+import { FolderCard, CreateFolderModal, FolderActionSheet } from '@/components/folder';
+import { SettingsSheet, TagManagementModal } from '@/components/settings';
+import { DeleteConfirmModal } from '@/components/common/DeleteConfirmModal';
 import { BookStatus, STATUS_LABELS } from '@/types';
 
 const client = generateClient<Schema>();
@@ -95,10 +97,21 @@ function HomeContent() {
   // Folder Navigation State
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
 
-  // Modals
+  // Modals & Menu State
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<BookModel | null>(null);
+
+  // Folder Management
   const [folderModalOpen, setFolderModalOpen] = useState(false);
+  const [isEditingFolder, setIsEditingFolder] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [folderActionSheetOpen, setFolderActionSheetOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [isDeletingFolder, setIsDeletingFolder] = useState(false); // Loading state for delete
+
+  // Settings & Tags
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [tagManagerOpen, setTagManagerOpen] = useState(false);
 
   // D&D Sensors
   const sensors = useSensors(
@@ -166,6 +179,11 @@ function HomeContent() {
     [folders, currentFolderId]
   );
 
+  const selectedFolderForAction = useMemo(() =>
+    folders.find(f => f.id === selectedFolderId),
+    [folders, selectedFolderId]
+  );
+
   // Filter Folders
   const filteredFolders = useMemo(() => {
     if (currentFolderId) return [];
@@ -216,24 +234,111 @@ function HomeContent() {
     };
   }, [books]);
 
-  // Handlers
-  const handleCreateFolder = async (name: string, status: BookStatus, color: string) => {
+  // Handlers - Folder Management
+  const handleSaveFolder = async (name: string, status: BookStatus, color: string) => {
     try {
-      const { data: newFolder } = await client.models.Folder.create({
-        name,
-        status,
-        color,
-      });
-      if (newFolder) {
-        setFolders(prev => [...prev, newFolder]);
-        showToast('フォルダを作成しました', 'success');
+      if (isEditingFolder && selectedFolderId) {
+        // Update
+        await client.models.Folder.update({
+          id: selectedFolderId,
+          name,
+          status,
+          color,
+        });
+        setFolders(prev => prev.map(f => f.id === selectedFolderId ? { ...f, name, status, color } : f));
+        showToast('フォルダを更新しました', 'success');
+      } else {
+        // Create
+        const { data: newFolder } = await client.models.Folder.create({
+          name,
+          status,
+          color,
+        });
+        if (newFolder) {
+          setFolders(prev => [...prev, newFolder]);
+          showToast('フォルダを作成しました', 'success');
+        }
       }
     } catch (error) {
-      console.error('Failed to create folder:', error);
+      console.error('Failed to save folder:', error);
       throw error;
     }
   };
 
+  const handleDeleteFolder = async () => {
+    if (!selectedFolderId) return;
+    setIsDeletingFolder(true);
+    try {
+      // 1. Delete books inside folder? Or just move them to root?
+      // Requirement: "フォルダ削除時には、フォルダ内の本も削除して大丈夫かポップアップで警告を出し、ユーザが許可すれば、フォルダとフォルダ内の本を削除"
+      // So we delete books inside too.
+
+      const booksInFolder = books.filter(b => b.folderId === selectedFolderId);
+
+      // Delete books parallel
+      await Promise.all(booksInFolder.map(b => client.models.Book.delete({ id: b.id })));
+
+      // Delete folder
+      await client.models.Folder.delete({ id: selectedFolderId });
+
+      // Build local update
+      setBooks(prev => prev.filter(b => b.folderId !== selectedFolderId));
+      setFolders(prev => prev.filter(f => f.id !== selectedFolderId));
+
+      showToast('フォルダと中の本を削除しました', 'success');
+    } catch (error) {
+      console.error('Failed to delete folder:', error);
+      showToast('削除に失敗しました', 'error');
+    } finally {
+      setIsDeletingFolder(false);
+      setDeleteConfirmOpen(false);
+    }
+  };
+
+  const openFolderMenu = (e: React.MouseEvent, folderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedFolderId(folderId);
+    setFolderActionSheetOpen(true);
+  };
+
+  // Handlers - Tag Management
+  const handleCreateTag = async (tagName: string) => {
+    try {
+      const { data: newTag } = await client.models.Tag.create({
+        name: tagName,
+        color: '#6366f1', // Default indigo
+      });
+      if (newTag) {
+        setTags(prev => [...prev, newTag]);
+        showToast('タグを作成しました', 'success');
+      }
+    } catch (error) {
+      console.error('Failed to create tag:', error);
+      showToast('タグの作成に失敗しました', 'error');
+    }
+  };
+
+  const handleDeleteTag = async (tagId: string, tagName: string) => {
+    // The confirm dialog is now handled by TagManagementModal
+    try {
+      setBookTags(prev => prev.filter(bt => bt.tagId !== tagId));
+      setTags(prev => prev.filter(t => t.id !== tagId));
+      if (selectedTagId === tagId) setSelectedTagId(null);
+
+      const bookTagsToDelete = bookTags.filter(bt => bt.tagId === tagId);
+      await Promise.all(bookTagsToDelete.map(bt => client.models.BookTag.delete({ id: bt.id })));
+      await client.models.Tag.delete({ id: tagId });
+
+      showToast('タグを削除しました', 'success');
+    } catch (error) {
+      console.error('Failed to delete tag:', error);
+      showToast('タグの削除に失敗しました', 'error');
+      fetchTags();
+    }
+  };
+
+  // Handlers - Book Status
   const handleStatusChange = async (newStatus: BookStatus) => {
     if (!selectedBook) return;
 
@@ -268,33 +373,6 @@ function HomeContent() {
     } catch (error) {
       console.error('Failed to update status:', error);
       showToast('ステータスの変更に失敗しました', 'error');
-    }
-  };
-
-  const handleDeleteTag = async (tagId: string, tagName: string) => {
-    if (!confirm(`タグ「${tagName}」を削除してもよろしいですか？`)) return;
-
-    try {
-      // 1. Delete relations locally first for UI responsiveness
-      setBookTags(prev => prev.filter(bt => bt.tagId !== tagId));
-      setTags(prev => prev.filter(t => t.id !== tagId));
-      if (selectedTagId === tagId) setSelectedTagId(null);
-
-      // 2. Delete from backend
-      // First delete all BookTag relations (Amplify/DynamoDB doesn't always cascade)
-      // Actually strictly speaking we should query them.
-      // But assuming cascade or manual cleanup. Let's just delete the tag.
-      // Ideally delete BookTags first.
-      const bookTagsToDelete = bookTags.filter(bt => bt.tagId === tagId);
-      await Promise.all(bookTagsToDelete.map(bt => client.models.BookTag.delete({ id: bt.id })));
-      await client.models.Tag.delete({ id: tagId });
-
-      showToast('タグを削除しました', 'success');
-    } catch (error) {
-      console.error('Failed to delete tag:', error);
-      showToast('タグの削除に失敗しました', 'error');
-      // Ideally revert state here, but skipping for brevity
-      fetchTags(); // Refetch to be safe
     }
   };
 
@@ -370,7 +448,11 @@ function HomeContent() {
     {
       label: 'フォルダを作成',
       icon: <span style={{ fontSize: '20px' }}>📁</span>,
-      onClick: () => setFolderModalOpen(true),
+      onClick: () => {
+        setIsEditingFolder(false); // Reset to create mode
+        setSelectedFolderId(null);
+        setFolderModalOpen(true);
+      },
     },
   ];
 
@@ -387,8 +469,9 @@ function HomeContent() {
             <div className={styles.logo}>
               <h1 className={styles.logoText}>蔵書・インサイトメモ管理</h1>
             </div>
-            <button className={styles.userButton} onClick={signOut}>
-              👤
+            {/* Settings Button */}
+            <button className={styles.userButton} onClick={() => setSettingsOpen(true)}>
+              <Settings size={20} />
             </button>
           </div>
 
@@ -423,25 +506,13 @@ function HomeContent() {
                 onClick={() => setSelectedTagId(null)}
               />
               {tags.map((tag) => (
-                <div key={tag.id} className="relative group">
-                  <TagChip
-                    name={tag.name}
-                    color={tag.color || undefined}
-                    isActive={selectedTagId === tag.id}
-                    onClick={() => setSelectedTagId(selectedTagId === tag.id ? null : tag.id)}
-                  />
-                  {/* Delete Tag Button (Long press or small X would be better for mobile, but here using a small overlay) */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteTag(tag.id, tag.name);
-                    }}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ width: '18px', height: '18px', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    ×
-                  </button>
-                </div>
+                <TagChip
+                  key={tag.id}
+                  name={tag.name}
+                  color={tag.color || undefined}
+                  isActive={selectedTagId === tag.id}
+                  onClick={() => setSelectedTagId(selectedTagId === tag.id ? null : tag.id)}
+                />
               ))}
             </div>
           )}
@@ -486,6 +557,7 @@ function HomeContent() {
                           color={folder.color || undefined}
                           bookCount={count}
                           onClick={() => setCurrentFolderId(folder.id)}
+                          onMenuOpen={(e) => openFolderMenu(e, folder.id)}
                         />
                       </DroppableFolderCard>
                     );
@@ -540,13 +612,71 @@ function HomeContent() {
           bookTitle={selectedBook?.title}
         />
 
-        {/* Create Folder Modal */}
+        {/* Folder Action Sheet (Edit/Delete) */}
+        <FolderActionSheet
+          isOpen={folderActionSheetOpen}
+          onClose={() => setFolderActionSheetOpen(false)}
+          onEdit={() => {
+            setIsEditingFolder(true);
+            setFolderModalOpen(true);
+          }}
+          onDelete={() => setDeleteConfirmOpen(true)}
+          folderName={selectedFolderForAction?.name || ''}
+        />
+
+        {/* Create/Edit Folder Modal */}
         <CreateFolderModal
           isOpen={folderModalOpen}
-          onClose={() => setFolderModalOpen(false)}
-          onSubmit={handleCreateFolder}
+          onClose={() => {
+            setFolderModalOpen(false);
+            setIsEditingFolder(false);
+            setSelectedFolderId(null);
+          }}
+          onSubmit={handleSaveFolder}
           initialStatus={activeStatus}
+          isEditing={isEditingFolder}
+          initialData={isEditingFolder && selectedFolderForAction ? {
+            name: selectedFolderForAction.name,
+            status: selectedFolderForAction.status as BookStatus, // Cast for safety if schema varies
+            color: selectedFolderForAction.color || undefined
+          } : undefined}
         />
+
+        {/* Delete Confirm Modal (For Folder) */}
+        <DeleteConfirmModal
+          isOpen={deleteConfirmOpen}
+          onClose={() => setDeleteConfirmOpen(false)}
+          onConfirm={handleDeleteFolder}
+          title="フォルダを削除"
+          message={
+            <>
+              フォルダ「{selectedFolderForAction?.name}」を削除します。<br />
+              <strong style={{ color: '#EF4444' }}>
+                フォルダ内の{books.filter(b => b.folderId === selectedFolderId).length}冊の本もすべて削除されます。
+              </strong><br />
+              本当によろしいですか？
+            </>
+          }
+          isDeleting={isDeletingFolder}
+        />
+
+        {/* Global Settings */}
+        <SettingsSheet
+          isOpen={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          onOpenTags={() => setTagManagerOpen(true)}
+          onLogout={signOut}
+        />
+
+        {/* Tag Manager */}
+        <TagManagementModal
+          isOpen={tagManagerOpen}
+          onClose={() => setTagManagerOpen(false)}
+          tags={tags}
+          onDeleteTag={handleDeleteTag}
+          onCreateTag={handleCreateTag}
+        />
+
       </div>
     </DndContext>
   );
