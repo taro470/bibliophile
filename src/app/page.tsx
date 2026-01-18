@@ -168,6 +168,19 @@ function HomeContent() {
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
+
+      // Parse URL params for State Restoration
+      const params = new URLSearchParams(window.location.search);
+      const statusParam = params.get('status');
+      const folderIdParam = params.get('folderId');
+
+      if (statusParam && ['TO_READ', 'READING', 'READ'].includes(statusParam)) {
+        setActiveStatus(statusParam as BookStatus);
+      }
+      if (folderIdParam) {
+        setCurrentFolderId(folderIdParam);
+      }
+
       await Promise.all([fetchBooks(), fetchFolders(), fetchTags()]);
       setIsLoading(false);
     };
@@ -444,7 +457,12 @@ function HomeContent() {
     {
       label: '本を追加',
       icon: <span style={{ fontSize: '20px' }}>📖</span>,
-      onClick: () => window.location.href = `/books/new${currentFolderId ? `?folderId=${currentFolderId}` : ''}`,
+      onClick: () => {
+        const params = new URLSearchParams();
+        params.set('status', activeStatus);
+        if (currentFolderId) params.set('folderId', currentFolderId);
+        window.location.href = `/books/new?${params.toString()}`;
+      },
     },
     {
       label: 'フォルダを作成',
@@ -623,7 +641,8 @@ function HomeContent() {
         </main>
 
         {/* Speed Dial FAB */}
-        <SpeedDial actions={speedDialActions} />
+        {/* Speed Dial FAB - Hide when inside a folder */}
+        {!currentFolderId && <SpeedDial actions={speedDialActions} />}
 
         {/* Status Bottom Sheet */}
         <StatusBottomSheet
