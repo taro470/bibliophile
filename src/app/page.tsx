@@ -22,7 +22,8 @@ import {
 } from '@/components/ui';
 import { BookCard, StatusBottomSheet } from '@/components/book';
 import { FolderCard, CreateFolderModal, FolderActionSheet } from '@/components/folder';
-import { SettingsSheet, TagManagementModal } from '@/components/settings';
+import { SettingsSheet } from '@/components/settings/SettingsSheet';
+import { TagManagementModal } from '@/components/settings/TagManagementModal';
 import { DeleteConfirmModal } from '@/components/common/DeleteConfirmModal';
 import { BookStatus, STATUS_LABELS } from '@/types';
 

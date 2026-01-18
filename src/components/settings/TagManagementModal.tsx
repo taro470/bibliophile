@@ -5,7 +5,7 @@ import { Trash2, Tag, Plus } from 'lucide-react';
 interface TagData {
   id: string;
   name: string;
-  color?: string;
+  color?: string | null;
 }
 
 interface TagManagementModalProps {
