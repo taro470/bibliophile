@@ -16,6 +16,12 @@ export const STATUS_COLORS: Record<BookStatus, string> = {
   READ: 'status-read',
 };
 
+export const STATUS_ICONS: Record<BookStatus, string> = {
+  TO_READ: '📚',
+  READING: '📖',
+  READ: '✅',
+};
+
 // InsightMemo Types
 export type MemoType = 'SUMMARY' | 'QUOTE' | 'DATA';
 

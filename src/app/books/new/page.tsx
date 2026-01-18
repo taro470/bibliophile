@@ -27,10 +27,25 @@ function AddBookContent() {
   const router = useRouter();
   const { showToast } = useToast();
 
+  // Parse search params manually since we are in a client component and standard hook might need Suspense boundary
+  // But for simple usage, window.location.search is fine or useSearchParams wrapped in suspense.
+  // Actually, standardNext.js 13+ way is useSearchParams.
+  // Let's use simple window check inside useEffect to avoid Suspense issues if possible, or just standard import.
+
+  const [status, setStatus] = useState<BookStatus>('TO_READ');
+
+  // Read params on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const statusParam = params.get('status');
+    if (statusParam && ['TO_READ', 'READING', 'READ'].includes(statusParam)) {
+      setStatus(statusParam as BookStatus);
+    }
+  }, []);
+
   // Form state
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
-  const [status, setStatus] = useState<BookStatus>('TO_READ');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Tags
@@ -96,11 +111,16 @@ function AddBookContent() {
     setIsSubmitting(true);
 
     try {
+      // Get folderId from params to associate if needed
+      const params = new URLSearchParams(window.location.search);
+      const folderId = params.get('folderId');
+
       // Create book
       const { data: book } = await client.models.Book.create({
         title: title.trim(),
         author: author.trim() || undefined,
         status,
+        folderId: folderId || undefined, // Pre-assign folder if present
         memoCount: 0,
       });
 
@@ -117,7 +137,10 @@ function AddBookContent() {
       }
 
       showToast(`「${title}」を追加しました`, 'success');
-      router.push('/');
+
+      // Redirect back with params to restore state
+      const redirectUrl = `/?status=${status}${folderId ? `&folderId=${folderId}` : ''}`;
+      router.push(redirectUrl);
     } catch (error) {
       console.error('Failed to create book:', error);
       showToast('本の追加に失敗しました', 'error');

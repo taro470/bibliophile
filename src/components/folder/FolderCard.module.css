@@ -1,0 +1,110 @@
+.card {
+  position: relative;
+  /* Use CSS variable for dynamic color, fallback to primary purple */
+  background: var(--folder-color, var(--color-bg-secondary));
+  border-radius: 0 var(--radius-lg) var(--radius-lg) var(--radius-lg);
+  padding: var(--space-4);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow: visible;
+  margin-top: 14px;
+  /* Increased space for tab */
+  border: none;
+  /* No border for solid look */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Folder Tab */
+.card::before {
+  content: '';
+  position: absolute;
+  top: -14px;
+  left: 0;
+  width: 90px;
+  height: 14px;
+  background: var(--folder-color, var(--color-bg-secondary));
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  z-index: 1;
+}
+
+/* Content wrapper to ensure text is readable on dark/colored background */
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  position: relative;
+  z-index: 3;
+}
+
+/* Icon is now integrated into the shape, but we keep it white/simple */
+.iconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  font-size: 20px;
+}
+
+.info {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: #ffffff;
+  /* White text for solid background */
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.count {
+  font-size: var(--text-xs);
+  color: rgba(255, 255, 255, 0.8);
+  /* White-ish text */
+}
+
+/* Removed indicator dot as the whole card is colored */
+.indicator {
+  display: none;
+}
+
+/* Menu Button */
+.menuButton {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-left: auto;
+  z-index: 4;
+}
+
+.menuButton:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  filter: brightness(1.05);
+  /* Lighten slightly on hover */
+}
